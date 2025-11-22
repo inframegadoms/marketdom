@@ -209,7 +209,7 @@ export default function RegisterPage() {
                 <span className="text-white font-bold text-2xl">M</span>
               </div>
             </Link>
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
               Crea tu cuenta
             </h2>
             <p className="text-gray-300">Únete a nuestra plataforma</p>
