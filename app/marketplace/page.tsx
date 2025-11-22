@@ -2,10 +2,12 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import Card from '@/components/ui/Card'
 import ProductCard from '@/components/ProductCard'
+import MarketplaceContent from '@/components/MarketplaceContent'
 
 export default async function MarketplacePage() {
   const supabase = createSupabaseServerClient()
 
+  // Fetch products
   const { data: products } = await supabase
     .from('products')
     .select(`
@@ -18,6 +20,35 @@ export default async function MarketplacePage() {
     `)
     .eq('status', 'active')
     .order('created_at', { ascending: false })
+
+  // Fetch stores (vendedores) with product count
+  const { data: stores } = await supabase
+    .from('vendedor_profiles')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  // Get product count for each store
+  const storesWithCount = await Promise.all(
+    (stores || []).map(async (store) => {
+      const { count, error } = await supabase
+        .from('products')
+        .select('*', { count: 'exact', head: true })
+        .eq('vendedor_id', store.id)
+        .eq('status', 'active')
+      
+      if (error) {
+        console.error(`Error counting products for store ${store.id}:`, error)
+      }
+      
+      return {
+        ...store,
+        product_count: count || 0,
+      }
+    })
+  )
+
+  // Filter stores that have at least one product
+  const activeStores = storesWithCount.filter((store) => store.product_count > 0)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
@@ -57,26 +88,11 @@ export default async function MarketplacePage() {
         </div>
       </div>
 
-      {/* Products Grid */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
-        {products && products.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {products.map((product: any, index: number) => (
-              <ProductCard key={product.id} product={product} index={index} />
-            ))}
-          </div>
-        ) : (
-          <Card className="text-center py-12">
-            <div className="max-w-md mx-auto">
-              <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-              </svg>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No hay productos disponibles</h3>
-              <p className="text-gray-500">Vuelve pronto para ver nuevos productos</p>
-            </div>
-          </Card>
-        )}
-      </div>
+      {/* Marketplace Content with Tabs */}
+      <MarketplaceContent 
+        products={products || []} 
+        stores={activeStores}
+      />
     </div>
   )
 }
