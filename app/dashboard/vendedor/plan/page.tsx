@@ -51,7 +51,7 @@ export default async function PlanPage() {
           <h2 className="text-xl font-semibold mb-4">Plan Actual</h2>
           <div className="space-y-2">
             <p className="text-lg">
-              <span className="font-medium">Plan:</span> {PLAN_NAMES[vendedorProfile.plan]}
+              <span className="font-medium">Plan:</span> {PLAN_NAMES[vendedorProfile.plan as PlanType]}
             </p>
             <p>
               <span className="font-medium">Productos publicados:</span> {currentCount} / {currentLimit === Infinity ? '∞' : currentLimit}
@@ -78,7 +78,7 @@ export default async function PlanPage() {
                     isCurrent ? 'ring-2 ring-primary-500' : ''
                   }`}
                 >
-                  <h3 className="text-lg font-semibold mb-2">{PLAN_NAMES[plan]}</h3>
+                  <h3 className="text-lg font-semibold mb-2">{PLAN_NAMES[plan as PlanType]}</h3>
                   <p className="text-3xl font-bold text-primary-600 mb-2">
                     {formatCurrency(PLAN_PRICES[plan])}
                   </p>
@@ -93,7 +93,7 @@ export default async function PlanPage() {
                     <UpgradePlanButton
                       currentPlan={vendedorProfile.plan}
                       newPlan={plan}
-                      disabled={PLAN_PRICES[plan] <= PLAN_PRICES[vendedorProfile.plan]}
+                      disabled={PLAN_PRICES[plan] <= PLAN_PRICES[vendedorProfile.plan as PlanType]}
                     />
                   )}
                 </div>

@@ -155,8 +155,8 @@ export default function PlanPaymentPage() {
               </h2>
               <p className="text-gray-600">
                 {isUpgrade 
-                  ? `Estás actualizando de ${currentPlan ? PLAN_NAMES[currentPlan] : 'tu plan actual'} a ${PLAN_NAMES[plan]}`
-                  : `Estás contratando el ${PLAN_NAMES[plan]}`
+                  ? `Estás actualizando de ${currentPlan ? PLAN_NAMES[currentPlan as PlanType] : 'tu plan actual'} a ${PLAN_NAMES[plan as PlanType]}`
+                  : `Estás contratando el ${PLAN_NAMES[plan as PlanType]}`
                 }
               </p>
             </div>
@@ -164,7 +164,7 @@ export default function PlanPaymentPage() {
             <div className="bg-gradient-to-r from-primary-50 to-indigo-50 border border-primary-200 rounded-lg p-6">
               <div className="flex justify-between items-center mb-4">
                 <span className="text-lg font-semibold text-gray-900">Plan seleccionado:</span>
-                <span className="text-xl font-bold text-primary-600">{PLAN_NAMES[plan]}</span>
+                <span className="text-xl font-bold text-primary-600">{PLAN_NAMES[plan as PlanType]}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-lg font-semibold text-gray-900">Precio:</span>

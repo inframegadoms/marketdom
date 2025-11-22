@@ -5,6 +5,7 @@ import { getProductLimit, getRemainingProducts, PLAN_NAMES } from '@/lib/plans'
 import Link from 'next/link'
 import { formatCurrency } from '@/lib/utils'
 import Card from '@/components/ui/Card'
+import { PlanType } from '@/types/database.types'
 
 export default async function VendedorDashboard() {
   const supabase = createSupabaseServerClient()
@@ -61,7 +62,7 @@ export default async function VendedorDashboard() {
               )}
               <div className="flex flex-wrap gap-4 text-sm">
                 <span className="bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm">
-                  Plan: {PLAN_NAMES[vendedorProfile.plan]}
+                  Plan: {PLAN_NAMES[vendedorProfile.plan as PlanType]}
                 </span>
                 {vendedorProfile.store_slug && (
                   <Link
@@ -145,7 +146,7 @@ export default async function VendedorDashboard() {
                 </div>
               </div>
               <h3 className="text-sm font-medium text-gray-500 mb-1">Mi Plan</h3>
-              <p className="text-xl font-bold text-gray-900 mb-2">{PLAN_NAMES[vendedorProfile.plan]}</p>
+              <p className="text-xl font-bold text-gray-900 mb-2">{PLAN_NAMES[vendedorProfile.plan as PlanType]}</p>
               <Link
                 href="/dashboard/vendedor/plan"
                 className="text-sm text-primary-600 hover:text-primary-700 font-medium"

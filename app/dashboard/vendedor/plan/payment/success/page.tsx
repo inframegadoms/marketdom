@@ -54,7 +54,7 @@ export default function PlanPaymentSuccessPage() {
 
         if (error) throw error
 
-        showSuccess(`¡Plan ${PLAN_NAMES[plan]} activado exitosamente!`)
+        showSuccess(`¡Plan ${PLAN_NAMES[plan as PlanType]} activado exitosamente!`)
         
         setTimeout(() => {
           router.push('/dashboard/vendedor/plan')
