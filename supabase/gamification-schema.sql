@@ -294,6 +294,10 @@ CREATE POLICY "Users can view own coins" ON user_coins
 CREATE POLICY "Users can update own coins" ON user_coins
   FOR UPDATE USING (auth.uid() = user_id);
 
+CREATE POLICY "Users can insert own coins" ON user_coins
+  FOR INSERT 
+  WITH CHECK (auth.uid() = user_id);
+
 -- Políticas para coin_transactions
 CREATE POLICY "Users can view own transactions" ON coin_transactions
   FOR SELECT USING (auth.uid() = user_id);
