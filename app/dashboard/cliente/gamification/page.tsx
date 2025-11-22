@@ -38,6 +38,7 @@ export default function GamificationPage() {
   const loadGamificationData = async () => {
     if (!authUser) {
       console.warn('loadGamificationData: No hay usuario autenticado')
+      setLoading(false)
       return
     }
 
@@ -45,14 +46,27 @@ export default function GamificationPage() {
       console.log('loadGamificationData: Iniciando carga de datos para usuario:', authUser.id)
       setLoading(true)
 
+      // Timeout de seguridad para evitar que se quede colgado
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout: La carga de datos está tardando demasiado')), 15000)
+      })
+
       // Cargar datos en paralelo con manejo individual de errores
-      const results = await Promise.allSettled([
+      const dataPromise = Promise.allSettled([
         getUserCoins(authUser.id),
         getUserQuestProgress(authUser.id),
         getActiveQuests(),
         getUserReferrals(authUser.id),
         getUserCoinTransactions(authUser.id, 10)
       ])
+
+      let results: PromiseSettledResult<any>[]
+      try {
+        results = await Promise.race([dataPromise, timeoutPromise])
+      } catch (timeoutError) {
+        // Si el timeout se dispara, lanzar el error para que se maneje en el catch
+        throw timeoutError
+      }
 
       const [coinsResult, progressResult, questsResult, referralsResult, transactionsResult] = results
 
@@ -110,29 +124,67 @@ export default function GamificationPage() {
       }
     } catch (error: any) {
       console.error('Error loading gamification data:', error)
-      showError('Error al cargar datos de gamificación. Por favor, intenta recargar la página.')
+      if (error.message?.includes('Timeout')) {
+        showError('La carga está tardando demasiado. Por favor, recarga la página.')
+      } else {
+        showError('Error al cargar datos de gamificación. Por favor, intenta recargar la página.')
+      }
     } finally {
+      // Asegurar que loading siempre se establezca en false
       setLoading(false)
     }
   }
 
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout | null = null
+    let safetyTimeout: NodeJS.Timeout | null = null
+    let mounted = true
+
+    // Timeout de seguridad: si authLoading no se resuelve en 10 segundos, intentar cargar de todos modos
+    safetyTimeout = setTimeout(() => {
+      if (mounted && authLoading) {
+        console.warn('Auth loading timeout, intentando cargar datos de todos modos...')
+        if (authUser) {
+          loadGamificationData()
+        } else {
+          setLoading(false)
+        }
+      }
+    }, 10000)
+
     // Esperar a que termine de cargar la autenticación
-    if (authLoading) return
+    if (authLoading) {
+      return () => {
+        if (safetyTimeout) clearTimeout(safetyTimeout)
+        mounted = false
+      }
+    }
 
     // Si no hay usuario después de cargar, redirigir (con delay más largo)
     if (!authUser) {
-      const timeoutId = setTimeout(() => {
-        // Verificar una vez más antes de redirigir
-        if (!authUser) {
+      timeoutId = setTimeout(() => {
+        if (mounted && !authUser) {
+          console.warn('No hay usuario autenticado, redirigiendo a login...')
           router.push('/auth/login')
         }
       }, 3000) // Aumentado a 3 segundos para dar tiempo al refresh de sesión
-      return () => clearTimeout(timeoutId)
+      return () => {
+        if (safetyTimeout) clearTimeout(safetyTimeout)
+        if (timeoutId) clearTimeout(timeoutId)
+        mounted = false
+      }
     }
 
     // Cargar datos solo si hay usuario
-    loadGamificationData()
+    if (authUser) {
+      loadGamificationData()
+    }
+
+    return () => {
+      if (safetyTimeout) clearTimeout(safetyTimeout)
+      if (timeoutId) clearTimeout(timeoutId)
+      mounted = false
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser, authLoading, router])
 
