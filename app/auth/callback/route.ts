@@ -112,9 +112,23 @@ async function processUser(supabase: any, user: any, mode: string | null, referr
     // Si es un nuevo usuario cliente, inicializar gamificación
     const userRole = user.user_metadata?.role || 'cliente'
     console.log(`[processUser] userRole: ${userRole}`)
-    console.log(`[processUser] Condición para inicializar: isNewUser=${isNewUser} && userRole=${userRole} === 'cliente'`)
     
-    if (isNewUser && userRole === 'cliente') {
+    // Verificar si el usuario ya tiene user_coins
+    const { data: existingCoins } = await supabase
+      .from('user_coins')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    
+    const hasCoins = !!existingCoins
+    console.log(`[processUser] hasCoins: ${hasCoins}`)
+    
+    // Inicializar si: es nuevo usuario O modo register O no tiene coins
+    const shouldInitialize = (isNewUser || mode === 'register' || !hasCoins) && userRole === 'cliente'
+    console.log(`[processUser] Condición para inicializar: (isNewUser=${isNewUser} || mode=${mode} === 'register' || !hasCoins=${!hasCoins}) && userRole=${userRole} === 'cliente'`)
+    console.log(`[processUser] shouldInitialize: ${shouldInitialize}`)
+    
+    if (shouldInitialize) {
       console.log(`[processUser] ✅ Condición cumplida, inicializando gamificación...`)
       try {
         // Importar función del servidor directamente
