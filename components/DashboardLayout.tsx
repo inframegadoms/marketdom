@@ -18,11 +18,6 @@ export default function DashboardLayout({ children, role, title, navItems }: Das
   const router = useRouter()
   const pathname = usePathname()
   const supabase = createSupabaseClient()
-  const [isClient, setIsClient] = useState(false)
-
-  useEffect(() => {
-    setIsClient(true)
-  }, [])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -51,7 +46,8 @@ export default function DashboardLayout({ children, role, title, navItems }: Das
             {/* Desktop Navigation */}
             <div className="hidden md:flex md:items-center md:space-x-1">
               {navItems.map((item) => {
-                const isActive = isClient && pathname === item.href
+                // Usar pathname directamente sin isClient para evitar problemas de hidratación
+                const isActive = pathname === item.href
                 return (
                   <Link
                     key={item.href}
