@@ -14,7 +14,7 @@ export default function EditProductPage() {
   const productId = params.id as string
   const router = useRouter()
   const supabase = createSupabaseClient()
-  const { showSuccess, showError, showInfo } = useToast()
+  const { showSuccess, showError, showInfo, showWarning } = useToast()
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
