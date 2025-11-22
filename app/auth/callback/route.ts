@@ -67,6 +67,10 @@ export async function GET(request: NextRequest) {
 
 async function processUser(supabase: any, user: any, mode: string | null, referralCode: string | null) {
   try {
+    console.log(`[processUser] Iniciando procesamiento. User ID: ${user.id}, Email: ${user.email}`)
+    console.log(`[processUser] Mode: ${mode}, ReferralCode: ${referralCode || 'ninguno'}`)
+    console.log(`[processUser] created_at: ${user.created_at}, last_sign_in_at: ${user.last_sign_in_at}`)
+    
     // Verificar si el usuario tiene perfil
     const { data: existingProfile } = await supabase
       .from('user_profiles')
@@ -76,6 +80,7 @@ async function processUser(supabase: any, user: any, mode: string | null, referr
 
     // Si es un nuevo usuario o no tiene perfil, crear/actualizar el perfil
     const isNewUser = user.created_at === user.last_sign_in_at
+    console.log(`[processUser] isNewUser: ${isNewUser}, existingProfile: ${existingProfile ? 'existe' : 'no existe'}`)
     
     if (isNewUser || !existingProfile || mode === 'register') {
       // Obtener nombre del usuario de Google
@@ -106,15 +111,20 @@ async function processUser(supabase: any, user: any, mode: string | null, referr
 
     // Si es un nuevo usuario cliente, inicializar gamificación
     const userRole = user.user_metadata?.role || 'cliente'
+    console.log(`[processUser] userRole: ${userRole}`)
+    console.log(`[processUser] Condición para inicializar: isNewUser=${isNewUser} && userRole=${userRole} === 'cliente'`)
+    
     if (isNewUser && userRole === 'cliente') {
+      console.log(`[processUser] ✅ Condición cumplida, inicializando gamificación...`)
       try {
         // Importar función del servidor directamente
         const { initializeUserCoinsServer } = await import('@/lib/gamification-server')
         
-        console.log(`[OAuth Callback] Inicializando gamificación para usuario: ${user.id}`)
+        console.log(`[processUser] ✅ Función importada, llamando initializeUserCoinsServer(${user.id})`)
         
         // Inicializar gamificación directamente
         const initialized = await initializeUserCoinsServer(user.id)
+        console.log(`[processUser] initializeUserCoinsServer retornó: ${initialized}`)
         
         if (initialized) {
           console.log(`[OAuth Callback] ✅ Gamificación inicializada exitosamente para: ${user.id}`)
