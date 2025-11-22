@@ -38,60 +38,85 @@ export default function MobileNav({ items, onLogout }: MobileNavProps) {
         </svg>
       </button>
 
-      {/* Mobile menu overlay */}
+      {/* Mobile menu overlay - Más oscuro para mejor contraste */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 md:hidden"
           onClick={() => setIsOpen(false)}
         />
       )}
 
-      {/* Mobile menu */}
+      {/* Mobile menu - Fondo sólido blanco con sombra más pronunciada */}
       <div
         className={`
-          fixed top-0 right-0 h-full w-64 bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out md:hidden
+          fixed top-0 right-0 h-full w-72 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out md:hidden
           ${isOpen ? 'translate-x-0' : 'translate-x-full'}
         `}
       >
-        <div className="p-4">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-bold text-primary-600">Menú</h2>
+        {/* Header del menú con gradiente */}
+        <div className="bg-gradient-to-r from-primary-600 to-primary-800 p-6 text-white">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
+                <span className="text-white font-bold text-lg">M</span>
+              </div>
+              <h2 className="text-xl font-bold">Menú</h2>
+            </div>
             <button
               onClick={() => setIsOpen(false)}
-              className="p-2 rounded-lg text-gray-600 hover:bg-gray-100"
+              className="p-2 rounded-lg text-white hover:bg-white/20 transition-colors"
+              aria-label="Cerrar menú"
             >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
-          
-          <nav className="space-y-2">
-            {items.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setIsOpen(false)}
-                className={`
-                  block px-4 py-3 rounded-lg transition-all duration-200
-                  ${pathname === item.href
-                    ? 'bg-primary-50 text-primary-700 font-medium'
-                    : 'text-gray-700 hover:bg-gray-50'
-                  }
-                `}
-              >
-                {item.label}
-              </Link>
-            ))}
+        </div>
+        
+        {/* Contenido del menú */}
+        <div className="p-4 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 120px)' }}>
+          <nav className="space-y-1">
+            {items.map((item) => {
+              const isActive = pathname === item.href
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setIsOpen(false)}
+                  className={`
+                    block px-4 py-3 rounded-lg transition-all duration-200 font-medium
+                    ${isActive
+                      ? 'bg-primary-600 text-white shadow-md'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-primary-600'
+                    }
+                  `}
+                >
+                  <div className="flex items-center space-x-3">
+                    {isActive && (
+                      <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                    )}
+                    <span>{item.label}</span>
+                  </div>
+                </Link>
+              )
+            })}
+            
+            <div className="border-t border-gray-200 my-4" />
             
             <button
               onClick={() => {
                 setIsOpen(false)
                 onLogout()
               }}
-              className="w-full text-left px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 transition-all duration-200"
+              className="w-full text-left px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 font-medium transition-all duration-200 border border-red-200 hover:border-red-300"
             >
-              Cerrar Sesión
+              <div className="flex items-center space-x-3">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                <span>Cerrar Sesión</span>
+              </div>
             </button>
           </nav>
         </div>
