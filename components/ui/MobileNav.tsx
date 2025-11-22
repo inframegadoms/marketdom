@@ -11,7 +11,18 @@ interface MobileNavProps {
 
 export default function MobileNav({ items, onLogout }: MobileNavProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const pathname = usePathname()
+
+  // Solo usar pathname después de que el componente esté montado
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Cerrar menú cuando cambia la ruta
+  useEffect(() => {
+    setIsOpen(false)
+  }, [pathname])
 
   return (
     <>
@@ -38,20 +49,23 @@ export default function MobileNav({ items, onLogout }: MobileNavProps) {
         </svg>
       </button>
 
-      {/* Mobile menu overlay - Fondo blanco sólido sin transparencia */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-white z-40 md:hidden"
-          onClick={() => setIsOpen(false)}
-        />
-      )}
+      {/* Mobile menu overlay - Siempre renderizado pero oculto cuando no está abierto */}
+      <div
+        className={`
+          fixed inset-0 bg-white z-40 md:hidden transition-opacity duration-300
+          ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}
+        `}
+        onClick={() => setIsOpen(false)}
+        aria-hidden={!isOpen}
+      />
 
-      {/* Mobile menu - Fondo blanco sólido */}
+      {/* Mobile menu - Siempre renderizado pero fuera de pantalla cuando está cerrado */}
       <div
         className={`
           fixed top-0 right-0 h-full w-72 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out md:hidden
           ${isOpen ? 'translate-x-0' : 'translate-x-full'}
         `}
+        aria-hidden={!isOpen}
       >
         {/* Header del menú - Blanco con borde inferior */}
         <div className="bg-white border-b border-gray-200 p-6">
@@ -78,7 +92,8 @@ export default function MobileNav({ items, onLogout }: MobileNavProps) {
         <div className="p-4 overflow-y-auto bg-white" style={{ maxHeight: 'calc(100vh - 120px)' }}>
           <nav className="space-y-1">
             {items.map((item) => {
-              const isActive = pathname === item.href
+              // Solo usar pathname después de montar para evitar problemas de hidratación
+              const isActive = mounted && pathname === item.href
               return (
                 <Link
                   key={item.href}
