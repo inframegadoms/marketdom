@@ -195,6 +195,147 @@ export async function registerReferralServer(
     console.log(`[registerReferralServer] ✅ Recompensa otorgada exitosamente`)
   }
 
+  // Actualizar progreso de misión del referrer
+  console.log(`[registerReferralServer] 📊 Actualizando progreso de misión "refer_friend"...`)
+  const questUpdated = await updateQuestProgress(supabase, referrerId, 'refer_friend')
+  if (questUpdated) {
+    console.log(`[registerReferralServer] ✅ Progreso de misión actualizado exitosamente`)
+  } else {
+    console.error(`[registerReferralServer] ❌ No se pudo actualizar el progreso de la misión`)
+  }
+
   return true
+}
+
+/**
+ * Actualiza el progreso de una misión
+ */
+async function updateQuestProgress(
+  supabase: any,
+  userId: string,
+  questCode: string,
+  increment: number = 1
+): Promise<boolean> {
+  try {
+    console.log(`[updateQuestProgress] Buscando misión con código: ${questCode}`)
+    
+    // Obtener la misión
+    const { data: quest, error: questError } = await supabase
+      .from('quests')
+      .select('*')
+      .eq('code', questCode)
+      .eq('is_active', true)
+      .maybeSingle()
+
+    if (questError) {
+      console.error('[updateQuestProgress] ❌ Error buscando misión:', questError)
+      return false
+    }
+
+    if (!quest) {
+      console.error(`[updateQuestProgress] ❌ Misión con código "${questCode}" no encontrada o no está activa`)
+      return false
+    }
+
+    console.log(`[updateQuestProgress] ✅ Misión encontrada: ${quest.name} (ID: ${quest.id})`)
+
+    // Obtener o crear progreso
+    const { data: progress, error: progressError } = await supabase
+      .from('quest_progress')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('quest_id', quest.id)
+      .maybeSingle()
+
+    if (progressError && progressError.code !== 'PGRST116') {
+      console.error('[updateQuestProgress] ❌ Error obteniendo progreso:', progressError)
+      return false
+    }
+
+    const currentProgress = progress?.progress || 0
+    const newProgress = currentProgress + increment
+    const target = quest.target_value
+
+    console.log(`[updateQuestProgress] Progreso actual: ${currentProgress}, Nuevo: ${newProgress}, Objetivo: ${target}`)
+
+    if (progress) {
+      const updateData: any = {
+        progress: newProgress,
+        updated_at: new Date().toISOString()
+      }
+
+      if (newProgress >= target && !progress.completed_at) {
+        updateData.completed_at = new Date().toISOString()
+        console.log(`[updateQuestProgress] ✅ Misión completada!`)
+      }
+
+      const { error: updateError } = await supabase
+        .from('quest_progress')
+        .update(updateData)
+        .eq('id', progress.id)
+
+      if (updateError) {
+        console.error('[updateQuestProgress] ❌ Error actualizando progreso:', updateError)
+        return false
+      }
+    } else {
+      const { error: insertError } = await supabase
+        .from('quest_progress')
+        .insert({
+          user_id: userId,
+          quest_id: quest.id,
+          progress: newProgress,
+          target: target,
+          completed_at: newProgress >= target ? new Date().toISOString() : null
+        })
+
+      if (insertError) {
+        console.error('[updateQuestProgress] ❌ Error insertando progreso:', insertError)
+        return false
+      }
+      
+      console.log(`[updateQuestProgress] ✅ Progreso creado`)
+    }
+
+    // Si se completó, otorgar recompensa
+    if (newProgress >= target) {
+      console.log(`[updateQuestProgress] 🎁 Otorgando recompensa de misión completada...`)
+      
+      // Obtener el progreso actualizado para verificar si ya se reclamó
+      const { data: updatedProgress } = await supabase
+        .from('quest_progress')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('quest_id', quest.id)
+        .maybeSingle()
+
+      if (updatedProgress && !updatedProgress.claimed_at) {
+        const { error: rewardError } = await supabase.rpc('add_user_coins', {
+          p_user_id: userId,
+          p_amount: quest.reward_amount,
+          p_source: 'quest',
+          p_description: `Misión completada: ${quest.name}`,
+          p_reference_id: quest.id
+        })
+
+        if (rewardError) {
+          console.error('[updateQuestProgress] ❌ Error otorgando recompensa:', rewardError)
+        } else {
+          console.log(`[updateQuestProgress] ✅ Recompensa de ${quest.reward_amount} MGC otorgada`)
+        }
+
+        await supabase
+          .from('quest_progress')
+          .update({ claimed_at: new Date().toISOString() })
+          .eq('user_id', userId)
+          .eq('quest_id', quest.id)
+      }
+    }
+
+    return true
+  } catch (error: any) {
+    console.error('[updateQuestProgress] ❌ Error:', error.message || error)
+    return false
+  }
 }
 
