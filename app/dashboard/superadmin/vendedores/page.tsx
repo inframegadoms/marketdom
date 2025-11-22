@@ -90,7 +90,7 @@ export default function SuperAdminVendedoresPage() {
         let email = 'N/A'
 
         // Si es el usuario actual, usar sus datos
-        if (currentUser?.id === vendedor.user_id) {
+        if (currentUser && currentUser.id === vendedor.user_id) {
           email = currentUser.email || 'N/A'
         }
 

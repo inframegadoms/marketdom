@@ -91,7 +91,7 @@ export default function SuperAdminUsersPage() {
         let role = 'cliente'
 
         // Si es el usuario actual, usar sus datos
-        if (currentUser?.id === profile.user_id) {
+        if (currentUser && currentUser.id === profile.user_id) {
           email = currentUser.email || 'N/A'
           role = currentUser.user_metadata?.role || 'cliente'
         }
