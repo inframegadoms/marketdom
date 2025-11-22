@@ -3,10 +3,10 @@ export type UserRole = 'superadmin' | 'vendedor' | 'cliente'
 export type PlanType = 'gratuito' | 'basico' | 'medio' | 'ilimitado'
 
 export interface PlanLimits {
-  gratuito: 3
-  basico: 10
-  medio: 25
-  ilimitado: Infinity
+  gratuito: number
+  basico: number
+  medio: number
+  ilimitado: number
 }
 
 export interface User {
