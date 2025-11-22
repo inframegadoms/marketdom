@@ -108,13 +108,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Timeout de seguridad más largo para evitar cerrar sesión prematuramente
+    // Timeout de seguridad más corto para evitar que se quede colgado
     timeoutId = setTimeout(() => {
       if (mounted && loading) {
         console.warn('Timeout loading user, verificando sesión...')
         // Verificar si hay sesión antes de dejar de mostrar loading
         supabase.auth.getSession().then(({ data: { session } }) => {
-          if (mounted) {
+          if (mounted && loading) { // Solo si sigue en loading
             if (session?.user) {
               // Hay sesión, establecer usuario básico
               setUser({
@@ -122,13 +122,19 @@ export function Providers({ children }: { children: React.ReactNode }) {
                 email: session.user.email!,
                 role: (session.user.user_metadata?.role as any) || 'cliente',
                 created_at: session.user.created_at,
+                profile: undefined,
               })
             }
+            setLoading(false) // Asegurar que loading se establezca en false
+          }
+        }).catch(() => {
+          // Si falla la verificación, establecer loading en false de todos modos
+          if (mounted && loading) {
             setLoading(false)
           }
         })
       }
-    }, 8000) // 8 segundos es suficiente
+    }, 5000) // Reducido a 5 segundos para respuesta más rápida
 
     getUser()
 
@@ -150,8 +156,35 @@ export function Providers({ children }: { children: React.ReactNode }) {
         // Para SIGNED_IN, actualizar inmediatamente
         if (event === 'SIGNED_IN' && session?.user) {
           if (mounted) {
-            setLoading(true)
-            await getUser()
+            // Establecer usuario inmediatamente con datos básicos de la sesión
+            setUser({
+              id: session.user.id,
+              email: session.user.email!,
+              role: (session.user.user_metadata?.role as any) || 'cliente',
+              created_at: session.user.created_at,
+              profile: undefined, // Se cargará después
+            })
+            setLoading(false) // Establecer loading en false inmediatamente
+            
+            // Cargar perfil completo en segundo plano
+            ;(async () => {
+              try {
+                const { data: profile } = await supabase
+                  .from('user_profiles')
+                  .select('*')
+                  .eq('user_id', session.user.id)
+                  .maybeSingle()
+                
+                if (mounted && profile) {
+                  setUser(prev => prev ? {
+                    ...prev,
+                    profile: profile
+                  } : null)
+                }
+              } catch (error) {
+                console.error('Error loading profile after SIGNED_IN:', error)
+              }
+            })()
           }
           return
         }
@@ -159,15 +192,47 @@ export function Providers({ children }: { children: React.ReactNode }) {
         // Para TOKEN_REFRESHED, solo actualizar si no hay usuario o si el usuario cambió
         if (event === 'TOKEN_REFRESHED' && session?.user) {
           if (mounted && (!user || user.id !== session.user.id)) {
-            await getUser()
+            // No cambiar loading, solo actualizar usuario si es necesario
+            if (!user) {
+              setUser({
+                id: session.user.id,
+                email: session.user.email!,
+                role: (session.user.user_metadata?.role as any) || 'cliente',
+                created_at: session.user.created_at,
+                profile: undefined,
+              })
+              setLoading(false)
+            }
+            // Cargar perfil en segundo plano si no existe
+            if (!user?.profile) {
+              ;(async () => {
+                try {
+                  const { data: profile } = await supabase
+                    .from('user_profiles')
+                    .select('*')
+                    .eq('user_id', session.user.id)
+                    .maybeSingle()
+                  
+                  if (mounted && profile) {
+                    setUser(prev => prev ? { ...prev, profile } : null)
+                  }
+                } catch (error) {
+                  console.error('Error loading profile after TOKEN_REFRESHED:', error)
+                }
+              })()
+            }
           }
           return
         }
         
-        // Para USER_UPDATED, actualizar datos del usuario
+        // Para USER_UPDATED, actualizar datos del usuario sin cambiar loading
         if (event === 'USER_UPDATED' && session?.user) {
           if (mounted) {
-            await getUser()
+            setUser(prev => prev ? {
+              ...prev,
+              email: session.user.email!,
+              role: (session.user.user_metadata?.role as any) || prev.role,
+            } : null)
           }
           return
         }
