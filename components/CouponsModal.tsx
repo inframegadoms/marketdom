@@ -102,9 +102,6 @@ export default function CouponsModal({ coupons, storeName, storeSlug }: CouponsM
                       {formatDiscount(coupon)}
                     </div>
                   </div>
-                  {coupon.description && (
-                    <p className="text-gray-700 mb-2 font-medium">{coupon.description}</p>
-                  )}
                   <p className="text-sm text-gray-600">{getCouponDescription(coupon)}</p>
                 </div>
               </div>
