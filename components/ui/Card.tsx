@@ -1,4 +1,4 @@
-import { ReactNode } from 'react'
+import { ReactNode, CSSProperties } from 'react'
 import { cn } from '@/lib/utils'
 
 interface CardProps {
@@ -6,9 +6,10 @@ interface CardProps {
   className?: string
   hover?: boolean
   glow?: boolean
+  style?: CSSProperties
 }
 
-export default function Card({ children, className, hover = false, glow = false }: CardProps) {
+export default function Card({ children, className, hover = false, glow = false, style }: CardProps) {
   return (
     <div
       className={cn(
@@ -17,6 +18,7 @@ export default function Card({ children, className, hover = false, glow = false 
         glow && 'hover:shadow-glow',
         className
       )}
+      style={style}
     >
       {children}
     </div>
