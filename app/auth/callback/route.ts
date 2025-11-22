@@ -9,8 +9,10 @@ export async function GET(request: NextRequest) {
   const mode = requestUrl.searchParams.get('mode')
   const referralCode = requestUrl.searchParams.get('ref') // Código de referido desde la URL
 
+  console.log(`[OAuth Callback] Iniciando callback. Mode: ${mode}, ReferralCode: ${referralCode || 'ninguno'}`)
+
   if (error) {
-    console.error('Error en OAuth:', error)
+    console.error('[OAuth Callback] Error en OAuth:', error)
     return NextResponse.redirect(
       new URL(`/auth/login?error=${encodeURIComponent(error)}`, requestUrl.origin)
     )
@@ -37,6 +39,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Procesar el usuario (crear perfil, etc.)
+      console.log(`[OAuth Callback] Procesando usuario: ${data.user.email}, ID: ${data.user.id}`)
       await processUser(supabase, data.user, mode, referralCode)
 
       // Redirigir según el rol
@@ -105,32 +108,56 @@ async function processUser(supabase: any, user: any, mode: string | null, referr
     const userRole = user.user_metadata?.role || 'cliente'
     if (isNewUser && userRole === 'cliente') {
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+        // Importar función del servidor directamente
+        const { initializeUserCoinsServer } = await import('@/lib/gamification-server')
         
-        // Inicializar gamificación
-        const initResponse = await fetch(`${baseUrl}/api/gamification/initialize`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id })
-        })
+        console.log(`[OAuth Callback] Inicializando gamificación para usuario: ${user.id}`)
         
-        // Si hay código de referido, procesarlo después de inicializar
-        if (referralCode && initResponse.ok) {
-          try {
-            await fetch(`${baseUrl}/api/gamification/referral`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                referrerCode: referralCode,
-                referredId: user.id
-              })
-            })
-          } catch (referralError) {
-            console.error('Error procesando referido en OAuth:', referralError)
+        // Inicializar gamificación directamente
+        const initialized = await initializeUserCoinsServer(user.id)
+        
+        if (initialized) {
+          console.log(`[OAuth Callback] Gamificación inicializada exitosamente para: ${user.id}`)
+          
+          // Si hay código de referido, procesarlo después de inicializar
+          if (referralCode) {
+            console.log(`[OAuth Callback] Procesando código de referido: ${referralCode} para usuario: ${user.id}`)
+            
+            try {
+              // Buscar el referrer_id basado en el código de referido
+              const { data: referrerCoins, error: referrerError } = await supabase
+                .from('user_coins')
+                .select('user_id')
+                .eq('referral_code', referralCode)
+                .single()
+              
+              if (referrerError || !referrerCoins) {
+                console.error(`[OAuth Callback] Código de referido inválido: ${referralCode}`, referrerError)
+              } else {
+                // Usar la función del servidor directamente
+                const { registerReferralServer } = await import('@/lib/gamification-server')
+                
+                const registered = await registerReferralServer(
+                  referrerCoins.user_id,
+                  user.id,
+                  referralCode
+                )
+                
+                if (registered) {
+                  console.log(`[OAuth Callback] Referido registrado exitosamente. Referrer: ${referrerCoins.user_id}, Referred: ${user.id}`)
+                } else {
+                  console.error(`[OAuth Callback] No se pudo registrar el referido`)
+                }
+              }
+            } catch (referralError: any) {
+              console.error('[OAuth Callback] Error procesando referido:', referralError.message || referralError)
+            }
           }
+        } else {
+          console.error(`[OAuth Callback] No se pudo inicializar gamificación para: ${user.id}`)
         }
-      } catch (gamificationError) {
-        console.error('Error inicializando gamificación:', gamificationError)
+      } catch (gamificationError: any) {
+        console.error('[OAuth Callback] Error inicializando gamificación:', gamificationError.message || gamificationError)
       }
     }
 
