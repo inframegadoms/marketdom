@@ -38,33 +38,33 @@ export default function MobileNav({ items, onLogout }: MobileNavProps) {
         </svg>
       </button>
 
-      {/* Mobile menu overlay - Más oscuro para mejor contraste */}
+      {/* Mobile menu overlay - Fondo blanco sólido sin transparencia */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 md:hidden"
+          className="fixed inset-0 bg-white z-40 md:hidden"
           onClick={() => setIsOpen(false)}
         />
       )}
 
-      {/* Mobile menu - Fondo sólido blanco con sombra más pronunciada */}
+      {/* Mobile menu - Fondo blanco sólido */}
       <div
         className={`
           fixed top-0 right-0 h-full w-72 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out md:hidden
           ${isOpen ? 'translate-x-0' : 'translate-x-full'}
         `}
       >
-        {/* Header del menú con gradiente */}
-        <div className="bg-gradient-to-r from-primary-600 to-primary-800 p-6 text-white">
-          <div className="flex items-center justify-between mb-4">
+        {/* Header del menú - Blanco con borde inferior */}
+        <div className="bg-white border-b border-gray-200 p-6">
+          <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
+              <div className="w-8 h-8 bg-gradient-to-br from-primary-600 to-primary-800 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-lg">M</span>
               </div>
-              <h2 className="text-xl font-bold">Menú</h2>
+              <h2 className="text-xl font-bold text-gray-900">Menú</h2>
             </div>
             <button
               onClick={() => setIsOpen(false)}
-              className="p-2 rounded-lg text-white hover:bg-white/20 transition-colors"
+              className="p-2 rounded-lg text-gray-700 hover:bg-gray-100 hover:text-primary-600 transition-colors"
               aria-label="Cerrar menú"
             >
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -75,7 +75,7 @@ export default function MobileNav({ items, onLogout }: MobileNavProps) {
         </div>
         
         {/* Contenido del menú */}
-        <div className="p-4 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 120px)' }}>
+        <div className="p-4 overflow-y-auto bg-white" style={{ maxHeight: 'calc(100vh - 120px)' }}>
           <nav className="space-y-1">
             {items.map((item) => {
               const isActive = pathname === item.href
@@ -87,17 +87,12 @@ export default function MobileNav({ items, onLogout }: MobileNavProps) {
                   className={`
                     block px-4 py-3 rounded-lg transition-all duration-200 font-medium
                     ${isActive
-                      ? 'bg-primary-600 text-white shadow-md'
-                      : 'text-gray-700 hover:bg-gray-100 hover:text-primary-600'
+                      ? 'bg-primary-50 text-primary-600 border-l-4 border-primary-600'
+                      : 'text-gray-900 hover:text-primary-600 hover:bg-gray-50'
                     }
                   `}
                 >
-                  <div className="flex items-center space-x-3">
-                    {isActive && (
-                      <div className="w-1.5 h-1.5 bg-white rounded-full" />
-                    )}
-                    <span>{item.label}</span>
-                  </div>
+                  {item.label}
                 </Link>
               )
             })}
@@ -109,7 +104,7 @@ export default function MobileNav({ items, onLogout }: MobileNavProps) {
                 setIsOpen(false)
                 onLogout()
               }}
-              className="w-full text-left px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 font-medium transition-all duration-200 border border-red-200 hover:border-red-300"
+              className="w-full text-left px-4 py-3 rounded-lg text-gray-900 hover:text-red-600 hover:bg-red-50 font-medium transition-all duration-200"
             >
               <div className="flex items-center space-x-3">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
