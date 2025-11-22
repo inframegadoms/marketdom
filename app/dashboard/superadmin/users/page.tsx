@@ -120,6 +120,7 @@ export default function SuperAdminUsersPage() {
       full_name: user.full_name || '',
       phone: user.phone || '',
       email: user.email || '',
+      password: '', // Password no se muestra al editar por seguridad
       role: user.role || 'cliente',
     })
     setShowModal(true)
