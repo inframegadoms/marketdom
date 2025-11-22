@@ -132,7 +132,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     getUser()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (event: string, session) => {
         if (!mounted) return
         
         console.log('Auth state changed:', event, session?.user?.email)
@@ -166,15 +166,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
               }
             } catch (error) {
               console.error('Error refreshing session:', error)
-            }
-          }
-          
-          // No cerrar sesión automáticamente a menos que sea SIGNED_OUT explícito
-          // Esto evita cierres inesperados por timeouts o errores temporales
-          if (event === 'SIGNED_OUT') {
-            if (mounted) {
-              setUser(null)
-              setLoading(false)
             }
           }
         }
