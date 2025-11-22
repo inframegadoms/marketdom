@@ -115,16 +115,21 @@ export default function GamificationPage() {
   }
 
   useEffect(() => {
+    // Esperar a que termine de cargar la autenticación
     if (authLoading) return
 
+    // Si no hay usuario después de cargar, redirigir (con delay más largo)
     if (!authUser) {
-      // Pequeño delay para evitar redirecciones innecesarias durante el refresh de sesión
       const timeoutId = setTimeout(() => {
-        router.push('/auth/login')
-      }, 1000)
+        // Verificar una vez más antes de redirigir
+        if (!authUser) {
+          router.push('/auth/login')
+        }
+      }, 3000) // Aumentado a 3 segundos para dar tiempo al refresh de sesión
       return () => clearTimeout(timeoutId)
     }
 
+    // Cargar datos solo si hay usuario
     loadGamificationData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser, authLoading, router])

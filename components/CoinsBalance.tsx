@@ -12,13 +12,16 @@ export default function CoinsBalance() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!user) {
+    // Solo cargar si hay usuario y es cliente
+    if (!user || user.role !== 'cliente') {
       setLoading(false)
+      setUserCoins(null)
       return
     }
 
     loadCoins()
-  }, [user])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, user?.role]) // Solo re-cargar si el ID o rol cambian
 
   const loadCoins = async () => {
     if (!user) return

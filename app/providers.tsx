@@ -28,25 +28,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
     const getUser = async () => {
       try {
-        // Agregar timeout a getSession para evitar que se quede colgado
-        const sessionPromise = supabase.auth.getSession()
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout getting session')), 5000)
-        )
-        
-        let sessionResult
-        try {
-          sessionResult = await Promise.race([sessionPromise, timeoutPromise])
-        } catch (timeoutError) {
-          console.warn('Timeout getting session in Providers, setting user to null')
-          if (mounted) {
-            setUser(null)
-            setLoading(false)
-          }
-          return
-        }
-        
-        const { data: { session }, error: sessionError } = sessionResult as any
+        // Intentar obtener sesión sin timeout agresivo
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
         
         if (!mounted) return
 
@@ -63,6 +46,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           
           console.error('Error getting session:', sessionError)
           if (mounted) {
+            setUser(null)
             setLoading(false)
           }
           return
@@ -71,26 +55,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
         const authUser = session?.user
         
         if (authUser) {
-          // Fetch user profile and role con timeout también
-          const profilePromise = supabase
+          // Fetch user profile sin timeout agresivo
+          const { data: profile, error: profileError } = await supabase
             .from('user_profiles')
             .select('*')
             .eq('user_id', authUser.id)
             .maybeSingle()
-          
-          const profileTimeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Timeout fetching profile')), 5000)
-          )
-          
-          let profileResult
-          try {
-            profileResult = await Promise.race([profilePromise, profileTimeoutPromise])
-          } catch (profileTimeoutError) {
-            console.warn('Timeout fetching profile, using user without profile')
-            profileResult = { data: null, error: null }
-          }
-          
-          const { data: profile, error: profileError } = profileResult as any
 
           if (profileError && profileError.code !== 'PGRST116') {
             // PGRST116 es "no rows returned", que es normal si el perfil no existe aún
@@ -116,18 +86,20 @@ export function Providers({ children }: { children: React.ReactNode }) {
       } catch (error) {
         console.error('Error in getUser:', error)
         if (mounted) {
+          setUser(null)
           setLoading(false)
         }
       }
     }
 
-    // Timeout de seguridad para evitar loading infinito
+    // Timeout de seguridad más largo para evitar cerrar sesión prematuramente
     timeoutId = setTimeout(() => {
-      if (mounted) {
-        console.warn('Timeout loading user, setting loading to false')
+      if (mounted && loading) {
+        console.warn('Timeout loading user, pero manteniendo sesión si existe')
+        // No establecer user a null, solo dejar de mostrar loading
         setLoading(false)
       }
-    }, 5000)
+    }, 10000) // Aumentado a 10 segundos
 
     getUser()
 
@@ -146,28 +118,37 @@ export function Providers({ children }: { children: React.ReactNode }) {
           return
         }
         
-        if (session?.user) {
-          // Solo cargar usuario si el evento es SIGNED_IN o TOKEN_REFRESHED
-          // No cargar en otros eventos para evitar loops
-          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        // Para SIGNED_IN, actualizar inmediatamente
+        if (event === 'SIGNED_IN' && session?.user) {
+          if (mounted) {
+            setLoading(true)
             await getUser()
           }
-        } else {
-          // Si no hay sesión pero no es SIGNED_OUT, podría ser un token expirado
-          // Intentar refrescar la sesión antes de cerrar (solo para eventos de token)
-          if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
-            // Estos eventos pueden venir sin sesión inicialmente, intentar obtenerla
-            try {
-              const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.getSession()
-              if (refreshedSession?.user && !refreshError) {
-                console.log('Session refreshed successfully after event:', event)
-                await getUser()
-                return
-              }
-            } catch (error) {
-              console.error('Error refreshing session:', error)
-            }
+          return
+        }
+        
+        // Para TOKEN_REFRESHED, solo actualizar si no hay usuario o si el usuario cambió
+        if (event === 'TOKEN_REFRESHED' && session?.user) {
+          if (mounted && (!user || user.id !== session.user.id)) {
+            await getUser()
           }
+          return
+        }
+        
+        // Para USER_UPDATED, actualizar datos del usuario
+        if (event === 'USER_UPDATED' && session?.user) {
+          if (mounted) {
+            await getUser()
+          }
+          return
+        }
+        
+        // Para INITIAL_SESSION, solo cargar si no hay usuario aún
+        if (event === 'INITIAL_SESSION') {
+          if (mounted && !user) {
+            await getUser()
+          }
+          return
         }
       }
     )
