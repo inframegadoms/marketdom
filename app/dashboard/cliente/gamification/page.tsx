@@ -35,6 +35,85 @@ export default function GamificationPage() {
   const [loading, setLoading] = useState(true)
   const [copiedCode, setCopiedCode] = useState(false)
 
+  const loadGamificationData = async () => {
+    if (!authUser) {
+      console.warn('loadGamificationData: No hay usuario autenticado')
+      return
+    }
+
+    try {
+      console.log('loadGamificationData: Iniciando carga de datos para usuario:', authUser.id)
+      setLoading(true)
+
+      // Cargar datos en paralelo con manejo individual de errores
+      const results = await Promise.allSettled([
+        getUserCoins(authUser.id),
+        getUserQuestProgress(authUser.id),
+        getActiveQuests(),
+        getUserReferrals(authUser.id),
+        getUserCoinTransactions(authUser.id, 10)
+      ])
+
+      const [coinsResult, progressResult, questsResult, referralsResult, transactionsResult] = results
+
+      // Procesar resultados
+      const coins = coinsResult.status === 'fulfilled' ? coinsResult.value : null
+      const progress = progressResult.status === 'fulfilled' ? progressResult.value : []
+      const quests = questsResult.status === 'fulfilled' ? questsResult.value : []
+      const userReferrals = referralsResult.status === 'fulfilled' ? referralsResult.value : []
+      const userTransactions = transactionsResult.status === 'fulfilled' ? transactionsResult.value : []
+
+      // Log errores individuales
+      if (coinsResult.status === 'rejected') {
+        console.error('Error cargando coins:', coinsResult.reason)
+      }
+      if (progressResult.status === 'rejected') {
+        console.error('Error cargando progreso:', progressResult.reason)
+      }
+      if (questsResult.status === 'rejected') {
+        console.error('Error cargando misiones:', questsResult.reason)
+      }
+      if (referralsResult.status === 'rejected') {
+        console.error('Error cargando referidos:', referralsResult.reason)
+      }
+      if (transactionsResult.status === 'rejected') {
+        console.error('Error cargando transacciones:', transactionsResult.reason)
+      }
+
+      setUserCoins(coins)
+      setQuestProgress(progress)
+      setAllQuests(quests)
+      setReferrals(userReferrals)
+      setTransactions(userTransactions)
+
+      // Si no tiene coins, inicializar
+      if (!coins) {
+        console.log('Usuario no tiene coins, inicializando...')
+        try {
+          const { initializeUserCoins } = await import('@/lib/gamification')
+          const newCoins = await initializeUserCoins(authUser.id)
+          if (newCoins) {
+            setUserCoins(newCoins)
+            showSuccess('¡Bienvenido! Has recibido 50 Megacoins de bienvenida 🎉')
+            console.log('Coins inicializados exitosamente')
+          } else {
+            console.warn('No se pudieron inicializar los coins')
+          }
+        } catch (initError) {
+          console.error('Error inicializando coins:', initError)
+          showError('Error al inicializar tu cuenta de Megacoins')
+        }
+      } else {
+        console.log('Coins cargados exitosamente:', coins.balance)
+      }
+    } catch (error: any) {
+      console.error('Error loading gamification data:', error)
+      showError('Error al cargar datos de gamificación. Por favor, intenta recargar la página.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (authLoading) return
 
@@ -47,45 +126,8 @@ export default function GamificationPage() {
     }
 
     loadGamificationData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser, authLoading, router])
-
-  const loadGamificationData = async () => {
-    if (!authUser) return
-
-    try {
-      setLoading(true)
-
-      // Cargar datos en paralelo
-      const [coins, progress, quests, userReferrals, userTransactions] = await Promise.all([
-        getUserCoins(authUser.id),
-        getUserQuestProgress(authUser.id),
-        getActiveQuests(), // Obtener todas las misiones activas
-        getUserReferrals(authUser.id),
-        getUserCoinTransactions(authUser.id, 10)
-      ])
-
-      setUserCoins(coins)
-      setQuestProgress(progress)
-      setAllQuests(quests) // Guardar todas las misiones
-      setReferrals(userReferrals)
-      setTransactions(userTransactions)
-
-      // Si no tiene coins, inicializar
-      if (!coins) {
-        const { initializeUserCoins } = await import('@/lib/gamification')
-        const newCoins = await initializeUserCoins(authUser.id)
-        if (newCoins) {
-          setUserCoins(newCoins)
-          showSuccess('¡Bienvenido! Has recibido 50 Megacoins de bienvenida 🎉')
-        }
-      }
-    } catch (error: any) {
-      console.error('Error loading gamification data:', error)
-      showError('Error al cargar datos de gamificación')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const copyReferralCode = async () => {
     if (!userCoins?.referral_code) return
@@ -137,10 +179,24 @@ export default function GamificationPage() {
   }
 
   if (!userCoins) {
+    if (loading) {
+      return (
+        <DashboardLayout role="cliente" title="Megacoins" navItems={navItems}>
+          <Card className="text-center py-16">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Cargando datos de gamificación...</p>
+          </Card>
+        </DashboardLayout>
+      )
+    }
+    
     return (
       <DashboardLayout role="cliente" title="Megacoins" navItems={navItems}>
         <Card className="text-center py-16">
-          <p className="text-gray-600">Error al cargar datos de gamificación</p>
+          <p className="text-gray-600 mb-4">No se pudieron cargar los datos de gamificación</p>
+          <p className="text-sm text-gray-500 mb-4">
+            Si es tu primera vez, estamos inicializando tu cuenta...
+          </p>
           <Button onClick={loadGamificationData} className="mt-4">
             Reintentar
           </Button>
