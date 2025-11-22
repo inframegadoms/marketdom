@@ -29,8 +29,8 @@ export async function GET() {
     }
 
     // Obtener datos relacionados
-    const clienteIds = [...new Set(orders.map((o: any) => o.cliente_id).filter(Boolean))]
-    const vendedorIds = [...new Set(orders.map((o: any) => o.vendedor_id).filter(Boolean))]
+    const clienteIds = Array.from(new Set(orders.map((o: any) => o.cliente_id).filter(Boolean)))
+    const vendedorIds = Array.from(new Set(orders.map((o: any) => o.vendedor_id).filter(Boolean)))
     const orderIds = orders.map((o: any) => o.id)
 
     // Obtener perfiles de clientes
@@ -55,7 +55,7 @@ export async function GET() {
       .in('order_id', orderIds)
 
     // Obtener productos para order_items
-    const productIds = [...new Set(orderItems?.map((item: any) => item.product_id).filter(Boolean) || [])]
+    const productIds = Array.from(new Set(orderItems?.map((item: any) => item.product_id).filter(Boolean) || []))
     const { data: products } = productIds.length > 0
       ? await adminClient
           .from('products')

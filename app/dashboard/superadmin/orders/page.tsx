@@ -75,8 +75,8 @@ export default function SuperAdminOrdersPage() {
       }
 
       // Obtener datos de clientes y vendedores por separado
-      const clienteIds = [...new Set(data.map((o: any) => o.cliente_id).filter(Boolean))]
-      const vendedorIds = [...new Set(data.map((o: any) => o.vendedor_id).filter(Boolean))]
+      const clienteIds = Array.from(new Set(data.map((o: any) => o.cliente_id).filter(Boolean)))
+      const vendedorIds = Array.from(new Set(data.map((o: any) => o.vendedor_id).filter(Boolean)))
 
       // Obtener perfiles de clientes
       const { data: clientes } = await supabase
