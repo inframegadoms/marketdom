@@ -119,6 +119,9 @@ export default function SuperAdminVendedoresPage() {
       plan: vendedor.plan || 'gratuito',
       contact_email: vendedor.contact_email || '',
       contact_phone: vendedor.contact_phone || '',
+      email: vendedor.email || '', // Email del usuario asociado
+      password: '', // Password no se muestra al editar por seguridad
+      full_name: '', // Nombre completo no se edita desde aquí
     })
     setShowModal(true)
   }
