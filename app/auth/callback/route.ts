@@ -117,26 +117,38 @@ async function processUser(supabase: any, user: any, mode: string | null, referr
         const initialized = await initializeUserCoinsServer(user.id)
         
         if (initialized) {
-          console.log(`[OAuth Callback] Gamificación inicializada exitosamente para: ${user.id}`)
+          console.log(`[OAuth Callback] ✅ Gamificación inicializada exitosamente para: ${user.id}`)
+          
+          // Esperar un momento para asegurar que el registro se haya guardado
+          await new Promise(resolve => setTimeout(resolve, 500))
           
           // Si hay código de referido, procesarlo después de inicializar
           if (referralCode) {
-            console.log(`[OAuth Callback] Procesando código de referido: ${referralCode} para usuario: ${user.id}`)
+            console.log(`[OAuth Callback] 🔗 Procesando código de referido: ${referralCode} para usuario: ${user.id}`)
             
             try {
+              // Usar cliente admin para buscar el referrer
+              const { createSupabaseAdminClient } = await import('@/lib/supabase/server')
+              const adminSupabase = createSupabaseAdminClient()
+              
               // Buscar el referrer_id basado en el código de referido
-              const { data: referrerCoins, error: referrerError } = await supabase
+              const { data: referrerCoins, error: referrerError } = await adminSupabase
                 .from('user_coins')
                 .select('user_id')
                 .eq('referral_code', referralCode)
-                .single()
+                .maybeSingle()
               
-              if (referrerError || !referrerCoins) {
-                console.error(`[OAuth Callback] Código de referido inválido: ${referralCode}`, referrerError)
+              if (referrerError) {
+                console.error(`[OAuth Callback] ❌ Error buscando referrer:`, referrerError)
+              } else if (!referrerCoins) {
+                console.error(`[OAuth Callback] ❌ Código de referido inválido o no encontrado: ${referralCode}`)
               } else {
+                console.log(`[OAuth Callback] ✅ Referrer encontrado: ${referrerCoins.user_id}`)
+                
                 // Usar la función del servidor directamente
                 const { registerReferralServer } = await import('@/lib/gamification-server')
                 
+                console.log(`[OAuth Callback] 📝 Registrando referido...`)
                 const registered = await registerReferralServer(
                   referrerCoins.user_id,
                   user.id,
@@ -144,17 +156,20 @@ async function processUser(supabase: any, user: any, mode: string | null, referr
                 )
                 
                 if (registered) {
-                  console.log(`[OAuth Callback] Referido registrado exitosamente. Referrer: ${referrerCoins.user_id}, Referred: ${user.id}`)
+                  console.log(`[OAuth Callback] ✅ Referido registrado exitosamente. Referrer: ${referrerCoins.user_id}, Referred: ${user.id}`)
                 } else {
-                  console.error(`[OAuth Callback] No se pudo registrar el referido`)
+                  console.error(`[OAuth Callback] ❌ No se pudo registrar el referido (registerReferralServer retornó false)`)
                 }
               }
             } catch (referralError: any) {
-              console.error('[OAuth Callback] Error procesando referido:', referralError.message || referralError)
+              console.error('[OAuth Callback] ❌ Error procesando referido:', referralError.message || referralError)
+              console.error('[OAuth Callback] Stack:', referralError.stack)
             }
+          } else {
+            console.log(`[OAuth Callback] ℹ️ No hay código de referido para procesar`)
           }
         } else {
-          console.error(`[OAuth Callback] No se pudo inicializar gamificación para: ${user.id}`)
+          console.error(`[OAuth Callback] ❌ No se pudo inicializar gamificación para: ${user.id}`)
         }
       } catch (gamificationError: any) {
         console.error('[OAuth Callback] Error inicializando gamificación:', gamificationError.message || gamificationError)

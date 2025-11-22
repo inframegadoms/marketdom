@@ -109,33 +109,57 @@ export async function registerReferralServer(
   referredId: string,
   referralCode: string
 ): Promise<boolean> {
+  console.log(`[registerReferralServer] Iniciando registro. Referrer: ${referrerId}, Referred: ${referredId}, Code: ${referralCode}`)
+  
   // Usar cliente admin para bypass RLS
   const supabase = createSupabaseAdminClient()
+  
+  if (!supabase) {
+    console.error('[registerReferralServer] ❌ No se pudo crear el cliente admin')
+    return false
+  }
 
   // Verificar que el código pertenece al referrer
-  const { data: referrerCoins } = await supabase
+  console.log(`[registerReferralServer] Verificando código de referido...`)
+  const { data: referrerCoins, error: referrerCheckError } = await supabase
     .from('user_coins')
     .select('referral_code')
     .eq('user_id', referrerId)
-    .single()
+    .maybeSingle()
 
-  if (!referrerCoins || referrerCoins.referral_code !== referralCode) {
+  if (referrerCheckError) {
+    console.error('[registerReferralServer] ❌ Error verificando referrer:', referrerCheckError)
     return false
   }
 
+  if (!referrerCoins || referrerCoins.referral_code !== referralCode) {
+    console.error(`[registerReferralServer] ❌ Código no coincide. Esperado: ${referralCode}, Encontrado: ${referrerCoins?.referral_code || 'null'}`)
+    return false
+  }
+
+  console.log(`[registerReferralServer] ✅ Código verificado correctamente`)
+
   // Verificar que no existe ya
-  const { data: existing } = await supabase
+  console.log(`[registerReferralServer] Verificando si el referido ya existe...`)
+  const { data: existing, error: existingError } = await supabase
     .from('referrals')
     .select('id')
     .eq('referred_id', referredId)
-    .single()
+    .maybeSingle()
 
-  if (existing) {
+  if (existingError && existingError.code !== 'PGRST116') {
+    console.error('[registerReferralServer] ❌ Error verificando existencia:', existingError)
     return false
   }
 
+  if (existing) {
+    console.log(`[registerReferralServer] ℹ️ Referido ya existe, no se creará duplicado`)
+    return true // Retornar true porque ya existe
+  }
+
   // Crear registro de referido
-  const { error } = await supabase
+  console.log(`[registerReferralServer] 📝 Creando registro de referido...`)
+  const { data: referralData, error: referralInsertError } = await supabase
     .from('referrals')
     .insert({
       referrer_id: referrerId,
@@ -143,20 +167,33 @@ export async function registerReferralServer(
       referral_code: referralCode,
       status: 'registered'
     })
+    .select()
 
-  if (error) {
-    console.error('Error registering referral:', error)
+  if (referralInsertError) {
+    console.error('[registerReferralServer] ❌ Error insertando referral:', referralInsertError)
+    console.error('[registerReferralServer] Código:', referralInsertError.code)
+    console.error('[registerReferralServer] Mensaje:', referralInsertError.message)
     return false
   }
 
+  console.log(`[registerReferralServer] ✅ Referral creado:`, referralData)
+
   // Otorgar recompensa al referrer
-  await supabase.rpc('add_user_coins', {
+  console.log(`[registerReferralServer] 💰 Otorgando recompensa de 50 MGC al referrer...`)
+  const { error: coinsError } = await supabase.rpc('add_user_coins', {
     p_user_id: referrerId,
     p_amount: 50,
     p_source: 'referral',
     p_description: 'Amigo referido se registró',
     p_reference_id: referredId
   })
+
+  if (coinsError) {
+    console.error('[registerReferralServer] ❌ Error otorgando coins:', coinsError)
+    // No retornar false aquí, el referral ya se creó
+  } else {
+    console.log(`[registerReferralServer] ✅ Recompensa otorgada exitosamente`)
+  }
 
   return true
 }
