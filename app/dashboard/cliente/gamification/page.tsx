@@ -75,6 +75,8 @@ export default function GamificationPage() {
       }
       if (referralsResult.status === 'rejected') {
         console.error('Error cargando referidos:', referralsResult.reason)
+      } else if (referralsResult.status === 'fulfilled') {
+        console.log(`Referidos cargados: ${referralsResult.value.length} referidos encontrados`)
       }
       if (transactionsResult.status === 'rejected') {
         console.error('Error cargando transacciones:', transactionsResult.reason)

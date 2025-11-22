@@ -7,6 +7,7 @@ export async function GET(request: NextRequest) {
   const code = requestUrl.searchParams.get('code')
   const error = requestUrl.searchParams.get('error')
   const mode = requestUrl.searchParams.get('mode')
+  const referralCode = requestUrl.searchParams.get('ref') // Código de referido desde la URL
 
   if (error) {
     console.error('Error en OAuth:', error)
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Procesar el usuario (crear perfil, etc.)
-      await processUser(supabase, data.user, mode)
+      await processUser(supabase, data.user, mode, referralCode)
 
       // Redirigir según el rol
       const role = data.user.user_metadata?.role || 'cliente'
@@ -61,7 +62,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.redirect(new URL('/auth/login', requestUrl.origin))
 }
 
-async function processUser(supabase: any, user: any, mode: string | null) {
+async function processUser(supabase: any, user: any, mode: string | null, referralCode: string | null) {
   try {
     // Verificar si el usuario tiene perfil
     const { data: existingProfile } = await supabase
@@ -105,11 +106,29 @@ async function processUser(supabase: any, user: any, mode: string | null) {
     if (isNewUser && userRole === 'cliente') {
       try {
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-        await fetch(`${baseUrl}/api/gamification/initialize`, {
+        
+        // Inicializar gamificación
+        const initResponse = await fetch(`${baseUrl}/api/gamification/initialize`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId: user.id })
         })
+        
+        // Si hay código de referido, procesarlo después de inicializar
+        if (referralCode && initResponse.ok) {
+          try {
+            await fetch(`${baseUrl}/api/gamification/referral`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                referrerCode: referralCode,
+                referredId: user.id
+              })
+            })
+          } catch (referralError) {
+            console.error('Error procesando referido en OAuth:', referralError)
+          }
+        }
       } catch (gamificationError) {
         console.error('Error inicializando gamificación:', gamificationError)
       }

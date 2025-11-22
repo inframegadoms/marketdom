@@ -37,10 +37,16 @@ export default function RegisterPage() {
       setError('')
       setLoading(true)
       
+      // Construir URL de callback con código de referido si existe
+      let callbackUrl = `${window.location.origin}/auth/callback?mode=register`
+      if (referralCode) {
+        callbackUrl += `&ref=${encodeURIComponent(referralCode)}`
+      }
+      
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?mode=register`,
+          redirectTo: callbackUrl,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -146,15 +152,28 @@ export default function RegisterPage() {
 
             // Procesar referido si existe
             if (referralCode) {
-              await fetch(`${baseUrl}/api/gamification/referral`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  referrerCode: referralCode,
-                  referredId: authData.user.id
+              try {
+                const referralResponse = await fetch(`${baseUrl}/api/gamification/referral`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    referrerCode: referralCode,
+                    referredId: authData.user.id
+                  })
                 })
-              })
-              showSuccess('¡Has sido referido! Tu amigo recibirá 50 Megacoins 🎉')
+                
+                const referralData = await referralResponse.json()
+                
+                if (referralResponse.ok && referralData.success) {
+                  showSuccess('¡Has sido referido! Tu amigo recibirá 50 Megacoins 🎉')
+                } else {
+                  console.warn('Error procesando referido:', referralData.error)
+                  // No mostrar error al usuario, solo loguear
+                }
+              } catch (referralError) {
+                console.error('Error al procesar referido:', referralError)
+                // No bloquear el registro si falla el referido
+              }
             }
           } catch (gamificationError) {
             console.error('Error inicializando gamificación:', gamificationError)

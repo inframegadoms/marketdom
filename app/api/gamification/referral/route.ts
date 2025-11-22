@@ -4,21 +4,17 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 export async function POST(request: NextRequest) {
   try {
     const supabase = createSupabaseServerClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-    }
-
     const body = await request.json()
     const { referrerCode, referredId } = body
 
-    if (referredId !== user.id) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+    if (!referrerCode || !referredId) {
+      return NextResponse.json({ error: 'Código de referido y ID de usuario requeridos' }, { status: 400 })
     }
 
-    if (!referrerCode) {
-      return NextResponse.json({ error: 'Código de referido requerido' }, { status: 400 })
+    // Verificar que el referredId es un UUID válido
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!uuidRegex.test(referredId)) {
+      return NextResponse.json({ error: 'ID de usuario inválido' }, { status: 400 })
     }
 
     // Buscar el referrer por código
@@ -59,7 +55,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Otorgar recompensa al referrer
-    await supabase.rpc('add_user_coins', {
+    const { error: coinsError } = await supabase.rpc('add_user_coins', {
       p_user_id: referrerCoins.user_id,
       p_amount: 50,
       p_source: 'referral',
@@ -67,10 +63,25 @@ export async function POST(request: NextRequest) {
       p_reference_id: referredId
     })
 
-    // Actualizar progreso de misión del referrer
-    await updateQuestProgress(supabase, referrerCoins.user_id, 'refer_friend')
+    if (coinsError) {
+      console.error('Error otorgando coins al referrer:', coinsError)
+      // No fallar completamente, el referido ya está registrado
+    } else {
+      console.log(`Recompensa de 50 MGC otorgada al referrer ${referrerCoins.user_id} por referido ${referredId}`)
+    }
 
-    return NextResponse.json({ success: true, message: 'Referido registrado exitosamente' })
+    // Actualizar progreso de misión del referrer
+    const questUpdated = await updateQuestProgress(supabase, referrerCoins.user_id, 'refer_friend')
+    if (questUpdated) {
+      console.log(`Progreso de misión actualizado para referrer ${referrerCoins.user_id}`)
+    }
+
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Referido registrado exitosamente',
+      referrerId: referrerCoins.user_id,
+      referredId: referredId
+    })
   } catch (error: any) {
     console.error('Error processing referral:', error)
     return NextResponse.json(
