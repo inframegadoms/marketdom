@@ -265,13 +265,16 @@ export async function updateQuestProgress(
 
   // Si se completó, otorgar recompensa
   if (newProgress >= target) {
-    const progressData = progress || await supabase
-      .from('quest_progress')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('quest_id', quest.id)
-      .single()
-      .then(({ data }) => data)
+    let progressData = progress
+    if (!progressData) {
+      const { data: fetchedProgress } = await supabase
+        .from('quest_progress')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('quest_id', quest.id)
+        .single()
+      progressData = fetchedProgress
+    }
 
     if (progressData && !progressData.claimed_at) {
       // Otorgar recompensa
