@@ -40,7 +40,7 @@ export default async function ProductPage({ params }: { params: { id: string } }
   // Then, get shipping methods separately
   const { data: shippingMethods } = await supabase
     .from('shipping_methods')
-    .select('id, name, price, estimated_days, is_active')
+    .select('id, vendedor_id, name, price, estimated_days, is_active, created_at')
     .eq('vendedor_id', product.vendedor_id)
     .eq('is_active', true)
 
