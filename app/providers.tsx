@@ -68,12 +68,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
           }
           
           // Cargar perfil en segundo plano (no bloquea)
-          supabase
-            .from('user_profiles')
-            .select('*')
-            .eq('user_id', authUser.id)
-            .maybeSingle()
-            .then(({ data: profile, error: profileError }) => {
+          ;(async () => {
+            try {
+              const { data: profile, error: profileError } = await supabase
+                .from('user_profiles')
+                .select('*')
+                .eq('user_id', authUser.id)
+                .maybeSingle()
+              
               if (!mounted) return
               
               if (profileError && profileError.code !== 'PGRST116') {
@@ -87,10 +89,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
                   profile: profile
                 } : null)
               }
-            })
-            .catch((error) => {
+            } catch (error) {
               console.error('Error loading profile in background:', error)
-            })
+            }
+          })()
         } else {
           if (mounted) {
             setUser(null)
