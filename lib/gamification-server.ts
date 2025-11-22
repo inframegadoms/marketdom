@@ -12,14 +12,32 @@ export async function initializeUserCoinsServer(userId: string): Promise<boolean
   // Usar cliente admin para bypass RLS
   const supabase = createSupabaseAdminClient()
   
+  // Verificar que el cliente admin se creó correctamente
+  if (!supabase) {
+    console.error('[initializeUserCoinsServer] Error: No se pudo crear el cliente admin de Supabase')
+    console.error('[initializeUserCoinsServer] Verifica que SUPABASE_SERVICE_ROLE_KEY esté configurada')
+    return false
+  }
+  
+  console.log(`[initializeUserCoinsServer] Cliente admin creado. Verificando si ya existe user_coins para: ${userId}`)
+  
   // Verificar si ya existe
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from('user_coins')
     .select('id')
     .eq('user_id', userId)
-    .single()
+    .maybeSingle()
 
-  if (existing) return true
+  if (existingError && existingError.code !== 'PGRST116') {
+    console.error('[initializeUserCoinsServer] Error verificando existencia:', existingError)
+  }
+
+  if (existing) {
+    console.log(`[initializeUserCoinsServer] user_coins ya existe para: ${userId}`)
+    return true
+  }
+  
+  console.log(`[initializeUserCoinsServer] Creando nuevo user_coins para: ${userId}`)
 
   // Generar código de referido único
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -50,7 +68,8 @@ export async function initializeUserCoinsServer(userId: string): Promise<boolean
   }
 
   // Crear registro inicial con 50 MGC de bienvenida
-  const { error: insertError } = await supabase
+  console.log(`[initializeUserCoinsServer] Insertando user_coins con código: ${referralCode}`)
+  const { data: insertData, error: insertError } = await supabase
     .from('user_coins')
     .insert({
       user_id: userId,
@@ -58,11 +77,16 @@ export async function initializeUserCoinsServer(userId: string): Promise<boolean
       total_earned: 50,
       referral_code: referralCode
     })
+    .select()
 
   if (insertError) {
-    console.error('Error initializing user coins:', insertError)
+    console.error('[initializeUserCoinsServer] Error insertando user_coins:', insertError)
+    console.error('[initializeUserCoinsServer] Código de error:', insertError.code)
+    console.error('[initializeUserCoinsServer] Mensaje:', insertError.message)
     return false
   }
+  
+  console.log(`[initializeUserCoinsServer] user_coins creado exitosamente:`, insertData)
 
   // Crear transacción de bienvenida
   await supabase.from('coin_transactions').insert({
