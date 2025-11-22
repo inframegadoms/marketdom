@@ -55,28 +55,42 @@ export function Providers({ children }: { children: React.ReactNode }) {
         const authUser = session?.user
         
         if (authUser) {
-          // Fetch user profile sin timeout agresivo
-          const { data: profile, error: profileError } = await supabase
-            .from('user_profiles')
-            .select('*')
-            .eq('user_id', authUser.id)
-            .maybeSingle()
-
-          if (profileError && profileError.code !== 'PGRST116') {
-            // PGRST116 es "no rows returned", que es normal si el perfil no existe aún
-            console.error('Error fetching profile:', profileError)
-          }
-
+          // Establecer usuario inmediatamente con datos básicos
           if (mounted) {
             setUser({
               id: authUser.id,
               email: authUser.email!,
               role: (authUser.user_metadata?.role as any) || 'cliente',
               created_at: authUser.created_at,
-              profile: profile || undefined,
+              profile: undefined, // Se cargará después si es necesario
             })
             setLoading(false)
           }
+          
+          // Cargar perfil en segundo plano (no bloquea)
+          supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('user_id', authUser.id)
+            .maybeSingle()
+            .then(({ data: profile, error: profileError }) => {
+              if (!mounted) return
+              
+              if (profileError && profileError.code !== 'PGRST116') {
+                console.error('Error fetching profile:', profileError)
+              }
+              
+              // Actualizar usuario con perfil si existe
+              if (profile) {
+                setUser(prev => prev ? {
+                  ...prev,
+                  profile: profile
+                } : null)
+              }
+            })
+            .catch((error) => {
+              console.error('Error loading profile in background:', error)
+            })
         } else {
           if (mounted) {
             setUser(null)
@@ -95,11 +109,24 @@ export function Providers({ children }: { children: React.ReactNode }) {
     // Timeout de seguridad más largo para evitar cerrar sesión prematuramente
     timeoutId = setTimeout(() => {
       if (mounted && loading) {
-        console.warn('Timeout loading user, pero manteniendo sesión si existe')
-        // No establecer user a null, solo dejar de mostrar loading
-        setLoading(false)
+        console.warn('Timeout loading user, verificando sesión...')
+        // Verificar si hay sesión antes de dejar de mostrar loading
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (mounted) {
+            if (session?.user) {
+              // Hay sesión, establecer usuario básico
+              setUser({
+                id: session.user.id,
+                email: session.user.email!,
+                role: (session.user.user_metadata?.role as any) || 'cliente',
+                created_at: session.user.created_at,
+              })
+            }
+            setLoading(false)
+          }
+        })
       }
-    }, 10000) // Aumentado a 10 segundos
+    }, 8000) // 8 segundos es suficiente
 
     getUser()
 

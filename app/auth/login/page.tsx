@@ -162,36 +162,28 @@ export default function LoginPage() {
       const role = data.user.user_metadata?.role || 'cliente'
       console.log('Rol del usuario detectado:', role)
       
-      showSuccess('¡Bienvenido! Iniciando sesión...')
+      showSuccess('¡Bienvenido! Redirigiendo...')
       
-      // Forzar actualización de la sesión antes de redirigir
-      try {
-        await supabase.auth.setSession({
-          access_token: data.session.access_token,
-          refresh_token: data.session.refresh_token,
-        })
-        console.log('Sesión establecida correctamente')
-      } catch (sessionError) {
-        console.warn('Error estableciendo sesión:', sessionError)
-        // Continuar de todas formas
-      }
-      
-      // Pequeña pausa para asegurar que todo se establezca
-      await new Promise(resolve => setTimeout(resolve, 300))
+      // No necesitamos setSession, signInWithPassword ya establece la sesión
+      // Solo esperar un momento para que el evento SIGNED_IN se propague
+      await new Promise(resolve => setTimeout(resolve, 500))
       
       console.log('Redirigiendo a dashboard según rol...')
       
-      // Redirigir según el rol usando window.location para forzar recarga completa
+      // Redirigir según el rol usando router.push para mejor experiencia
       if (role === 'superadmin') {
         console.log('Redirigiendo a superadmin')
-        window.location.href = '/dashboard/superadmin'
+        router.push('/dashboard/superadmin')
       } else if (role === 'vendedor') {
         console.log('Redirigiendo a vendedor')
-        window.location.href = '/dashboard/vendedor'
+        router.push('/dashboard/vendedor')
       } else {
         console.log('Redirigiendo a cliente (rol por defecto)')
-        window.location.href = '/dashboard/cliente'
+        router.push('/dashboard/cliente')
       }
+      
+      // Marcar loading como false después de redirigir
+      setLoading(false)
     } catch (err: any) {
       console.error('Error completo en login:', err)
       const errorMessage = err.message || 'Error al iniciar sesión. Por favor, intenta nuevamente.'
